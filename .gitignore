@@ -1,0 +1,29 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+terraform.tfvars
+*.auto.tfvars
+*.tfvars.json
+*.auto.tfvars.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+private/
+backups/
+config/prerequisites.local.json
+crash.log
+crash.*.log
+# Commit the Terraform provider lock file after providers are selected.
+
+# Local vault instructions and deployment archive fingerprints
+/AGENTS.md
+terraform/*/source-manifest.json

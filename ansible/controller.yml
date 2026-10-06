@@ -1,0 +1,154 @@
+---
+- name: Configure the separate Oracle Linux Ansible CLI controller
+  hosts: controller
+  become: true
+  gather_facts: true
+  vars:
+    controller_root: /opt/ansible-controller
+    controller_venv: /opt/ansible-controller/venv
+  pre_tasks:
+    - name: Verify the intended OS and architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'OracleLinux'
+          - ansible_facts.distribution_major_version == '9'
+          - ansible_facts.architecture == 'x86_64'
+        fail_msg: This playbook is scoped to the approved Oracle Linux 9 AMD controller.
+  tasks:
+    - name: Read the current kernel crash-dump reservation
+      ansible.builtin.command: cat /sys/kernel/kexec_crash_size
+      register: crash_reserved
+      changed_when: false
+
+    - name: Disable crash-dump capture on the 1 GB CLI controller
+      ansible.builtin.systemd_service:
+        name: kdump
+        state: stopped
+        enabled: false
+
+    - name: Read the configured boot arguments
+      ansible.builtin.command: grubby --info=ALL
+      register: boot_entries
+      changed_when: false
+
+    - name: Remove the micro VM's large crash-kernel memory reservation
+      ansible.builtin.command:
+        argv:
+          - grubby
+          - --update-kernel=ALL
+          - --remove-args=crashkernel
+          - --args=crashkernel=0
+      when: boot_entries.stdout is search('crashkernel=(?!0)')
+      register: crash_setting
+      changed_when: true
+
+    - name: Reboot once to recover the reserved memory
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        connect_timeout: 15
+      when: crash_reserved.stdout | int > 0 or crash_setting is changed
+
+    - name: Refresh host facts after any reboot
+      ansible.builtin.setup:
+
+    - name: Verify usable memory and retained SELinux enforcement
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.memtotal_mb > 850
+          - ansible_facts.selinux.status == 'enabled'
+          - ansible_facts.selinux.mode == 'enforcing'
+
+    - name: Install the supported Python runtime and command-line dependencies
+      ansible.builtin.dnf:
+        name:
+          - python3.12
+          - python3.12-pip
+          - git
+          - openssh-clients
+        state: present
+
+    - name: Create the controller runtime directory
+      ansible.builtin.file:
+        path: '{{ controller_root }}'
+        state: directory
+        owner: opc
+        group: opc
+        mode: '0755'
+
+    - name: Copy the fully pinned controller package requirements
+      ansible.builtin.copy:
+        src: files/controller-requirements.txt
+        dest: '{{ controller_root }}/requirements.txt'
+        owner: opc
+        group: opc
+        mode: '0644'
+
+    - name: Install the pinned CLI in an isolated Python 3.12 environment
+      become_user: opc
+      ansible.builtin.pip:
+        requirements: '{{ controller_root }}/requirements.txt'
+        virtualenv: '{{ controller_venv }}'
+        virtualenv_command: /usr/bin/python3.12 -m venv
+        extra_args: '--require-hashes --only-binary=:all: --index-url https://pypi.org/simple --disable-pip-version-check'
+        state: present
+
+    - name: Add the controller CLI to login shells
+      ansible.builtin.copy:
+        dest: /etc/profile.d/ansible-controller.sh
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Managed by Ansible: the separate controller's isolated CLI.
+          export PATH="/opt/ansible-controller/venv/bin:$PATH"
+
+    - name: Create the owner's automation workspace
+      ansible.builtin.file:
+        path: /home/opc/automation
+        state: directory
+        owner: opc
+        group: opc
+        mode: '0700'
+
+    - name: Configure small-controller defaults
+      ansible.builtin.copy:
+        dest: /home/opc/automation/ansible.cfg
+        owner: opc
+        group: opc
+        mode: '0600'
+        content: |
+          [defaults]
+          forks = 2
+          host_key_checking = True
+          interpreter_python = auto_silent
+          retry_files_enabled = False
+
+    - name: Verify the installed CLI release
+      become_user: opc
+      ansible.builtin.command:
+        argv:
+          - '{{ controller_venv }}/bin/ansible'
+          - --version
+      register: cli_version
+      changed_when: false
+      failed_when: "'core 2.21.4' not in cli_version.stdout"
+
+    - name: Verify a harmless local module on the controller
+      become_user: opc
+      ansible.builtin.command:
+        argv:
+          - '{{ controller_venv }}/bin/ansible'
+          - localhost
+          - -i
+          - localhost,
+          - -c
+          - local
+          - -m
+          - ansible.builtin.ping
+          - -e
+          - 'ansible_python_interpreter={{ controller_venv }}/bin/python'
+      environment:
+        ANSIBLE_CONFIG: /home/opc/automation/ansible.cfg
+      register: local_ping
+      changed_when: false
+      failed_when: "local_ping.rc != 0 or 'pong' not in local_ping.stdout"

@@ -1,0 +1,40 @@
+{
+  "recorded_at": null,
+  "evidence_note": null,
+  "local_code_directory": "/Users/spk/workspace/prepare/n8n-selfhost",
+  "hostname": "n8nautomation.learnwithsk.dev",
+  "oci": {
+    "account_type": null,
+    "home_region": null,
+    "compartment": null,
+    "availability_domain": null,
+    "a1_ocpu_limit": null,
+    "a1_ocpu_usage": null,
+    "a1_ocpu_available": null,
+    "a1_memory_gb_limit": null,
+    "a1_memory_gb_usage": null,
+    "a1_memory_gb_available": null,
+    "combined_boot_block_gb": null,
+    "volume_backup_count": null,
+    "existing_vcn_count": null,
+    "compartment_quota_restrictions": null,
+    "month_to_date_a1_ocpu_hours": null,
+    "month_to_date_a1_gb_hours": null,
+    "capacity_observation": null,
+    "ubuntu_image": null,
+    "cost_eligibility_decision": null
+  },
+  "cloudflare": {
+    "zone_status": null,
+    "provider_record_observation": null,
+    "existing_tunnel_or_route": null,
+    "existing_access_policy": null,
+    "editor_identity": null,
+    "editor_login_method": null,
+    "webhook_auth_method": null
+  },
+  "code_remote": null,
+  "terraform_state_backend": null,
+  "secret_store_reference": null,
+  "off_host_backup_destination": null
+}
