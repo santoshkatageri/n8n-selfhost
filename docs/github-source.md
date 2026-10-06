@@ -10,10 +10,10 @@ Connect both existing Resource Manager stacks to the same repository on `main`:
 
 | Stack | Working directory | Required private variables |
 | --- | --- | --- |
-| automations-compartment | terraform/compartment | tenancy_ocid, existing_compartment_ocid, region |
+| automations-compartment | terraform/compartment | tenancy_ocid, region |
 | automations-controller | terraform/controller | compartment_ocid, availability_domain, admin_ipv4_cidr, ssh_public_key, image_ocid |
 
-Do not create replacement stacks or reimport their state. The public source replaces account-specific literals with inputs. Retain exactly the deployed values when switching source, including the tenant-prefixed AD-2 name. The first Git-sourced plan must show no infrastructure changes. Stop and investigate any addition, replacement or deletion.
+Do not create replacement stacks or reimport their state. The public controller source replaces account-specific literals with inputs. The compartment source omits its completed import block and relies on the already imported state. Retain exactly the deployed values when switching source, including the tenant-prefixed AD-2 name. The first Git-sourced plan must show no infrastructure changes. Stop and investigate any addition, replacement or deletion.
 
 Create a Resource Manager GitHub configuration source provider using a fine-grained, read-only GitHub PAT limited to this one public repository. Enter the token directly in OCI; do not paste it into chat or code. Validate the connection, edit each existing stack's source, select the provider/repository/branch/directory, and fill the private variables. Git sourcing fetches source when a job runs; it does not itself trigger an apply.
 

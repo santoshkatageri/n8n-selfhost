@@ -12,4 +12,4 @@ Expected plan: **1 to import, 0 to add, 0 to change, 0 to destroy**. Review the 
 Known parent tenancy: `<private-tenancy-ocid>`.
 Known compartment: `<private-compartment-ocid>`.
 
-For Git sourcing, set `existing_compartment_ocid` privately to the already imported compartment. Preserve this stack and its state.
+The compartment is already imported. The public Git source omits the completed import block because Terraform 1.5 does not accept variables in its import ID. Preserve the existing stack and state; removing the completed import declaration does not remove the resource. For adoption in a different tenancy, use a private, literal-ID import configuration and review its import-only plan first.

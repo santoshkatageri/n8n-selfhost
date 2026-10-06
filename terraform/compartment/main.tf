@@ -52,17 +52,5 @@ output "automations_compartment_name" {
   value = oci_identity_compartment.automations.name
 }
 
-variable "existing_compartment_ocid" {
-  description = "Existing automations compartment to adopt; set privately in Resource Manager."
-  type        = string
-  validation {
-    condition     = startswith(var.existing_compartment_ocid, "ocid1.compartment.")
-    error_message = "Supply the verified existing compartment OCID."
-  }
-}
-
-# Adopt the existing compartment without publishing the account-specific OCID.
-import {
-  to = oci_identity_compartment.automations
-  id = var.existing_compartment_ocid
-}
+# The compartment is already imported in the existing Resource Manager state.
+# Keep the same stack/state when changing to Git source.
