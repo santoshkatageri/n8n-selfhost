@@ -178,8 +178,8 @@ Created Resource Manager stack `automations-controller` inside automations at 08
 ## Current checkpoint
 
 - Completed: compartment import; separate Ansible CLI controller decision; AMD, VCN and storage preflight; dedicated SSH key; validated controller Terraform source and management stack.
-- Controller created: reviewed and approved plan applied successfully; SSH and boot verified. Ansible bootstrap and memory tuning verification are underway. For the future n8n VM: month-to-date metered A1 usage, eligible Ubuntu ARM64 image and physical host capacity remain to check.
-- Owner choices pending: code remote, secret store, encrypted off-host backup destination and allowed editor email.
+- Controller created: reviewed and approved plan applied successfully; SSH and boot verified. Memory tuning is verified (498 to 945 MiB usable); Ansible CLI installation remains unverified: SSH stalled, recovered after a normal restart, then stalled again during the package-installation retry. For the future n8n VM: month-to-date metered A1 usage, eligible Ubuntu ARM64 image and physical host capacity remain to check.
+- Owner choices pending: secret store, encrypted off-host backup destination and allowed editor email. The public GitHub code remote is selected; cloud trigger credentials remain pending.
 - Not yet implemented: n8n compute/network/storage, Ansible configuration, pinned containers, Cloudflare route and Access policies, persistence/restart checks, backup restore and Buffer draft pilot.
 
 The separate AMD controller and shared network are now created. Finish controller verification and GitHub source activation; then prepare the separate n8n compute/storage plan using the existing compartment and shared network.
@@ -208,7 +208,7 @@ The user asked to keep the stacks GitHub sourced and triggered. Resource Manager
 
 The owner approved the exact restricted plan. The apply log at 08:35:23 UTC / 14:05:23 IST confirmed **8 added, 0 changed, 0 destroyed**, and Resource Manager showed Succeeded. SSH with the dedicated key succeeded; cloud-init completed, the OS reported Oracle Linux 9.8 on x86_64, Python 3.9.25 and a 50 GB boot disk. The new SSH host key was recorded locally and subsequent connections require it to match.
 
-The image's kernel crash-dump reservation consumed 448 MiB (469,762,048 bytes), leaving 498 MiB usable from the free VM's nominal 1 GB. We chose to recover that RAM for the small CLI workload, accepting loss of kernel crash-dump capture. Automatic approval review initially rejected the extra tuning/reboot because the tradeoff needed explicit approval; the action did not run then. The user subsequently approved disabling kdump, setting crashkernel=0 and rebooting once, and requested that the reason be documented. Ansible is now carrying out that approved adjustment and CLI installation. Post-boot recovered memory, CLI checks and repeat-run results remain to verify at this checkpoint.
+The image's kernel crash-dump reservation consumed 448 MiB (469,762,048 bytes), leaving 498 MiB usable from the free VM's nominal 1 GB. We chose to recover that RAM for the small CLI workload, accepting loss of kernel crash-dump capture. Automatic approval review initially rejected the extra tuning/reboot because the tradeoff needed explicit approval; the action did not run then. The user subsequently approved disabling kdump, setting crashkernel=0 and rebooting once, and requested that the reason be documented. Ansible completed the approved adjustment and single reboot. Post-boot SSH measured **945 MiB usable RAM**, **zero crash reservation** and zero swap used. The memory and SELinux-enforcing assertions passed. A subsequent SSH banner timeout interrupted the playbook before its package-installation task could run; CLI installation and repeat-run results are not yet verified.
 
 See [the detailed crash-dump decision and restoration instructions](controller-crash-dumps.md). This applies to this disposable controller, not every managed VM. SELinux, ordinary logs and SSH restrictions are retained.
 
@@ -216,4 +216,25 @@ See [the detailed crash-dump decision and restoration instructions](controller-c
 
 The user selected repository name n8n-selfhost and then explicitly chose public visibility. Account-specific compartment identifiers and the tenant-prefixed availability domain were moved from literals to private Resource Manager inputs. Deployed source copies are retained under private/ for comparison; both reusable Terraform configurations passed validation with zero errors and warnings.
 
-The repository will contain a source-validation workflow and an opt-in plan-only OCI trigger. The trigger requires a GitHub read-only source connection, dedicated OCI CI credentials and preserved stack variables before activation. Existing cloud state and stack identities must be retained. No private keys, connection inventory, source archives, state or saved plans are published.
+Created the public repository [santoshkatageri/n8n-selfhost](https://github.com/santoshkatageri/n8n-selfhost), including a source-validation workflow and an opt-in plan-only OCI trigger. The trigger requires a GitHub read-only source connection, dedicated OCI CI credentials and preserved stack variables before activation. Existing cloud state and stack identities must be retained. No private keys, connection inventory, source archives, state or saved plans are published.
+
+
+## 14. Verify source checks and the GitHub connection
+
+GitHub source validation passed at revision `44104fc`: both Terraform directories were checked with Terraform 1.5.7 and Ansible syntax was checked on Python 3.12. Earlier checks exposed a YAML command quoting issue, an already-completed compartment import declaration incompatible with variable IDs in Terraform 1.5, and missing Linux provider lock hashes. We corrected the command block, removed the completed import declaration while preserving imported state, and generated verified OCI provider checksums for Linux amd64/arm64 and macOS arm64. [Successful validation run](https://github.com/santoshkatageri/n8n-selfhost/actions/runs/37439092203).
+
+The owner created and entered the read-only GitHub credential directly into OCI. Configuration source provider `n8n-selfhost-github` is Active in automations, created at 08:53:59 UTC / 14:23:59 IST. OCI's Validate connection check succeeded. No credential was copied into chat or source. Existing stack source migration and zero-change plans are the next checks; a validated provider alone does not enable automatic cloud plans.
+
+
+## 15. Discover the Resource Manager source-type restriction
+
+The existing stack editor exposed only Folder and ZIP source options. A guarded CLI update using the current stack etag, preserved inputs and validated provider was rejected at 09:00:02 UTC / 14:30:02 IST: HTTP 400 InvalidParameter, “The origin (type) of configuration source cannot be changed.” No stack source, variable or infrastructure change succeeded. We will choose between GitHub-driven ZIP updates to the existing stacks and a controlled Terraform-state migration to new Git-sourced stacks. The first preserves stack identities and avoids state migration. The connection is valid, but automatic plans remain disabled.
+
+
+## 16. Recover SSH and retry the controller bootstrap
+
+Restricted SSH began timing out during banner exchange. The current owner IPv4 still matched the unchanged single-address SSH rule. Serial-history captures did not identify the cause. A normal OCI soft restart returned the instance to Running; SSH then reported 945 MiB usable RAM, zero crash reservation, kdump disabled and SELinux enforcing. This recovery restart was separate from the earlier reboot needed to release the crash reservation.
+
+We reused that authenticated SSH connection for the bootstrap retry. OS, memory and SELinux checks passed; the crash-argument change and reservation reboot tasks were skipped, as intended. The retry reached package installation but stopped returning progress, and new SSH connections again timed out before authentication. At 09:20 UTC / 14:50 IST, the OCI page displayed CPU utilization 60% and memory utilization 96%; top-process collection returned an error. These observations do not prove the root cause or a successful package transaction. The CLI version, local ping and repeat-run checks remain unverified.
+
+Further diagnosis needs a temporary serial-console session. OCI requires an RSA key for serial access, so the existing Ed25519 admin key cannot be reused there. Its Cloud Shell shortcut generates a temporary console key and connection; the owner is being asked to perform that credential step directly. No console connection, password change, expanded SSH rule or additional instance has been created. [OCI serial-console guidance](https://docs.oracle.com/en-us/iaas/Content/Compute/References/serialconsole.htm).

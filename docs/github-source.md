@@ -4,18 +4,24 @@ Repository: `https://github.com/santoshkatageri/n8n-selfhost` (public, chosen by
 
 The repository contains source only. Actual compartment/tenancy/stack identifiers, the admin IP, public connection details, private keys, state and plans stay in private local settings or OCI. The platform image OCID is public vendor metadata and is deliberately pinned.
 
-## Preserve existing stacks and state
+## Existing ZIP stacks: source-type limitation
 
-Connect both existing Resource Manager stacks to the same repository on `main`:
+On 6 October 2026, OCI rejected changing the controller from ZIP_UPLOAD to GIT_CONFIG_SOURCE with HTTP 400 InvalidParameter: “The origin (type) of configuration source cannot be changed.” Both existing stacks remain ZIP sourced, with their original state intact. The owner-created GitHub provider is Active and its connection validates.
+
+Two routes are available: keep existing stack IDs/state and have a GitHub workflow upload a verified source ZIP before creating a plan, or migrate protected Terraform state into newly created Git-sourced stacks. Never manage the same resources from both states simultaneously. The published native-Git plan workflow is still disabled; its source guard will reject the current ZIP stacks. Do not activate it before choosing and implementing the route.
+
+## Native Git source layout
+
+For native Git stacks, use the repository on `main` with this layout:
 
 | Stack | Working directory | Required private variables |
 | --- | --- | --- |
 | automations-compartment | terraform/compartment | tenancy_ocid, region |
 | automations-controller | terraform/controller | compartment_ocid, availability_domain, admin_ipv4_cidr, ssh_public_key, image_ocid |
 
-Do not create replacement stacks or reimport their state. The public controller source replaces account-specific literals with inputs. The compartment source omits its completed import block and relies on the already imported state. Retain exactly the deployed values when switching source, including the tenant-prefixed AD-2 name. The first Git-sourced plan must show no infrastructure changes. Stop and investigate any addition, replacement or deletion.
+A new Git stack requires a controlled state migration; creating a blank replacement stack and running apply would propose duplicates. The public controller source replaces account-specific literals with inputs. The compartment source omits its completed import block and relies on the already imported state. Retain exactly the deployed values during any migration, including the tenant-prefixed AD-2 name. The first Git-sourced plan must show no infrastructure changes. Stop and investigate any addition, replacement or deletion.
 
-Create a Resource Manager GitHub configuration source provider using a fine-grained, read-only GitHub PAT limited to this one public repository. Enter the token directly in OCI; do not paste it into chat or code. Validate the connection, edit each existing stack's source, select the provider/repository/branch/directory, and fill the private variables. Git sourcing fetches source when a job runs; it does not itself trigger an apply.
+Create a Resource Manager GitHub configuration source provider using a fine-grained, read-only GitHub PAT limited to this one public repository. Enter the token directly in OCI; do not paste it into chat or code. Connection validation succeeded. OCI does not allow editing these existing ZIP stacks into Git stacks; select the provider/repository/branch/directory only during an approved new-stack state migration. Git sourcing fetches source when a job runs; it does not itself trigger an apply.
 
 ## Repository workflows
 
@@ -36,8 +42,8 @@ The script checks each stack is sourced from this repository, main and its expec
 
 ## Activation checklist
 
-- [ ] GitHub read-only source provider created and validated by the owner.
-- [ ] Both existing stacks switched to Git without replacing state.
+- [x] GitHub read-only source provider created by the owner; Active and connection validation succeeded.
+- [ ] Choose verified ZIP synchronization or controlled migration to new Git stacks; preserve the existing infrastructure state.
 - [ ] Private variables preserved; first Git plans have zero infrastructure changes.
 - [ ] Dedicated CI identity/access and environment secrets configured by the owner.
 - [ ] Main-branch and environment restrictions configured.
