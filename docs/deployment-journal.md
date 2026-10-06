@@ -238,3 +238,51 @@ Restricted SSH began timing out during banner exchange. The current owner IPv4 s
 We reused that authenticated SSH connection for the bootstrap retry. OS, memory and SELinux checks passed; the crash-argument change and reservation reboot tasks were skipped, as intended. The retry reached package installation but stopped returning progress, and new SSH connections again timed out before authentication. At 09:20 UTC / 14:50 IST, the OCI page displayed CPU utilization 60% and memory utilization 96%; top-process collection returned an error. These observations do not prove the root cause or a successful package transaction. The CLI version, local ping and repeat-run checks remain unverified.
 
 Further diagnosis needs a temporary serial-console session. OCI requires an RSA key for serial access, so the existing Ed25519 admin key cannot be reused there. Its Cloud Shell shortcut generates a temporary console key and connection; the owner is being asked to perform that credential step directly. No console connection, password change, expanded SSH rule or additional instance has been created. [OCI serial-console guidance](https://docs.oracle.com/en-us/iaas/Content/Compute/References/serialconsole.htm).
+
+
+## 17. Reconnect from the Mac and identify memory exhaustion
+
+Fresh, non-multiplexed SSH from the Mac succeeded at 09:52 UTC and again at 09:56 UTC on 6 October 2026, using the existing dedicated key and strict host-key verification. A temporary serial-console connection is no longer needed for diagnosis while normal SSH remains available. At 09:56 UTC the controller had 945 MiB usable RAM, 641 MiB available, and 127 MiB swap in use.
+
+The kernel journal records a confirmed out-of-memory kill at 09:43:09 UTC: the victim was `dnf` in `dnf-makecache.service`, with approximately 703 MiB anonymous resident memory; only 248 KiB swap remained free at that event. This establishes severe memory exhaustion during the incident, although it does not establish the cause of every earlier SSH timeout. The connection problem was not a limitation of using a Mac.
+
+Package checks show Python 3.12, its pip package and Git are still missing; Ansible CLI readiness is not verified. Address package-management memory pressure before retrying installation. No SSH rules or credentials were changed during these checks.
+
+
+### Follow-up: memory pressure before application deployment
+
+Read-only checks on 6 October confirmed 32 running system services, including Oracle Cloud Agent, its updater, Performance Co-Pilot metrics collectors/loggers, SSH, logging and firewall services. These are image-provided background workloads; no n8n application is needed for them to run. At the latest check, RAM use was 334 MiB with 611 MiB available, and swap use was 129 MiB.
+
+The automatic `dnf-makecache.timer` invokes `/usr/bin/dnf makecache --timer`. Kernel evidence confirms this service was killed for memory exhaustion at both 09:43:09 UTC and 11:55:04 UTC. Its anonymous resident memory was approximately 703 MiB and 720 MiB respectively, with less than 250 KiB swap free. A separate root-owned Python process in an SSH session was also killed at 09:26:45 UTC at approximately 735 MiB anonymous resident memory; the kernel excerpt alone does not identify its exact command. Therefore the package metadata workload repeatedly exceeds this small VM's available memory alongside normal OS services. The idle memory snapshot is not its peak requirement. No services or settings were changed during this investigation.
+
+
+## 18. Drop the dedicated free-tier Ansible controller
+
+On 6 October 2026 the owner decided to stop pursuing an Ansible controller on the OCI free AMD VM after repeated package-maintenance memory exhaustion. Run Ansible from the Mac for future host configuration; Terraform continues to own cloud infrastructure through OCI Resource Manager.
+
+Verified the existing Mac installation: ansible-core 2.21.4, Python 3.14.7, and a localhost ping returning `pong` with `changed: false`. The initial sandboxed checks encountered temporary-directory and local process-communication restrictions; the same local ping succeeded outside the sandbox. This verifies local module execution, not configuration of the future n8n host.
+
+The controller bootstrap is retired from the active plan. Its source and crash-dump notes remain as historical evidence. No cloud resource was deleted by this decision update. The AMD VM and its 50 GB boot volume remain allocated pending the owner's cleanup choice. Preserve the shared VCN, subnet, routing and compartment. The current Terraform instance has `prevent_destroy = true` and `preserve_boot_volume = true`; deletion must be planned deliberately through the existing state, including explicit boot-volume cleanup rather than destroying the entire stack. No storage quota has yet been reclaimed.
+
+
+## 19. Authorize controller cleanup and prepare the n8n host
+
+The owner explicitly authorized destroying the AMD VM and its 50 GB boot disk and starting n8n machine implementation. Prepared a two-stage Terraform retirement: first allow instance deletion and disable boot-disk preservation, then remove only the instance from the existing stack while retaining all seven network resources. Private transition archives use the deployed input defaults. Neither transition has been applied.
+
+Added `terraform/n8n`: one A1 ARM instance with 2 OCPUs / 6 GB RAM, 50 GB boot disk, a protected 50 GB data volume with paravirtualized attachment, and a dedicated SSH-only NSG restricted to the owner's verified /32. Existing network IDs and a verified exact Ubuntu ARM image must be supplied privately. Added this directory to source-validation CI. No application services or public application ingress are configured by this infrastructure step.
+
+The OCI Chrome session expired. Cloud cleanup, actual usage/quota/image/capacity checks, plan review and provisioning await owner sign-in. No VM or disk deletion, quota reclamation or n8n deployment is claimed. The owner has already authorized cleanup; no repeated deletion approval is needed for this scope.
+
+
+## 20. Resume cleanup and check n8n capacity
+
+OCI sign-in restored on 6 October 2026. The transition plan contained only `preserve_boot_volume: true -> false` (0 additions, 1 change, 0 deletions) and its apply succeeded. The subsequent controller-only deletion plan succeeded with 0 additions, 0 changes and 1 deletion; boot-volume preservation was false. After the owner confirmed the final browser deletion step, the saved-plan apply was submitted. Termination verification is recorded below when complete.
+
+A1 regional resource availability reports 2 CPUs and 12 GB available, with zero usage. Tenancy compartment inspection found only the existing AMD controller running; root and vaultwarden had no active instances. Physical capacity reports at approximately 13:28 UTC returned `OUT_OF_HOST_CAPACITY` for A1 2 OCPUs / 6 GB in all three Ashburn availability domains. Quota availability does not imply physical host availability. No n8n apply or paid fallback was attempted.
+
+Pinned compatible platform image `Canonical-Ubuntu-24.04-aarch64-2026.09.18-0` in the n8n source. Mac public IPv4 still matches the existing approved /32. Both the network-only source and n8n source pass Terraform validation; local provider execution requires leaving the restricted agent sandbox. n8n provisioning awaits host capacity, and storage consumption must be rechecked before apply.
+
+
+### Cleanup completion
+
+Verified the deletion apply is **SUCCEEDED**, the AMD instance is **TERMINATED**, and its 50 GB boot volume is **TERMINATED**. The reviewed plan removed one instance and made no network changes; the shared network and existing Resource Manager stack/state are retained. No n8n resources were created: A1 2-CPU/6-GB physical capacity is unavailable in all three Ashburn ADs. The next provisioning step is a fresh capacity and storage-usage check, then a reviewed n8n plan when capacity becomes available.

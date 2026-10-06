@@ -22,6 +22,14 @@ The compartment state backend is OCI Resource Manager stack `automations-compart
 
 Learn With SK owns content and publishing decisions. The later Obsidian-to-n8n-to-Buffer pilot creates one reviewed draft; hosting preparation authorizes no publishing.
 
-## Separate controller and Git source
+## Mac-based Ansible management
 
-The separate free AMD controller source is `terraform/controller`, with its Oracle Linux CLI bootstrap in `ansible/controller.yml`. Cloud state stays in Resource Manager. The controller is provisioned; the approved crash-dump adjustment recovered usable RAM from 498 to 945 MiB. CLI installation remains unverified after an SSH banner timeout. See `docs/controller-crash-dumps.md` for the rationale and restoration steps. The owner-created GitHub source provider validates, but OCI cannot convert the existing ZIP stacks to Git. See `docs/github-source.md` for the source options and plan-trigger prerequisites. Automatic cloud plans remain disabled.
+Run Ansible from the owner's Mac. The dedicated free AMD controller approach was dropped on 6 October 2026 after repeated package-maintenance memory exhaustion. Mac ansible-core 2.21.4 with Python 3.14.7 passed a localhost ping. The n8n service host is still to be provisioned and configured.
+
+The AMD VM and its 50 GB boot disk were deleted successfully. Their shared network and OCI Terraform state are retained. `terraform/controller` now describes the retained network; `ansible/controller.yml` is historical bootstrap code and must not be rerun as the active setup path. See `docs/deployment-journal.md` for the decision and evidence.
+
+The GitHub source provider validates, but OCI cannot convert existing ZIP stacks to Git. See `docs/github-source.md` for source options and trigger prerequisites. Automatic cloud plans remain disabled.
+
+## n8n host implementation
+
+`terraform/n8n` is prepared and validated for A1 2 OCPUs / 6 GB RAM, Ubuntu 24.04 ARM64, 50 GB boot and 50 GB data storage. Provisioning is blocked by OUT_OF_HOST_CAPACITY in all three Ashburn ADs despite sufficient A1 quota. No n8n resources have been created. Recheck physical capacity and actual storage usage before applying.

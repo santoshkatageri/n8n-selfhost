@@ -77,36 +77,3 @@ resource "oci_core_network_security_group_security_rule" "admin_ssh" {
     }
   }
 }
-resource "oci_core_instance" "controller" {
-  compartment_id       = var.compartment_ocid
-  availability_domain  = var.availability_domain
-  display_name         = "ansible-controller-amd"
-  shape                = "VM.Standard.E2.1.Micro"
-  preserve_boot_volume = true
-  source_details {
-    source_type             = "image"
-    source_id               = var.image_ocid
-    boot_volume_size_in_gbs = 50
-    boot_volume_vpus_per_gb = 10
-  }
-  create_vnic_details {
-    subnet_id        = oci_core_subnet.management.id
-    assign_public_ip = true
-    private_ip       = "10.70.10.10"
-    hostname_label   = "ansible-controller"
-    nsg_ids          = [oci_core_network_security_group.admin.id]
-  }
-  metadata = {
-    ssh_authorized_keys = trimspace(var.ssh_public_key)
-  }
-  instance_options {
-    are_legacy_imds_endpoints_disabled = true
-  }
-  freeform_tags = local.tags
-  lifecycle {
-    prevent_destroy = true
-  }
-  timeouts {
-    create = "10m"
-  }
-}
